@@ -38,11 +38,6 @@ python --version # 3.10+
 
 Install MinGW from [winlibs.com](https://winlibs.com/) and make sure `g++` and `gdb` are on your PATH.
 
-**Linux / WSL2:**
-```bash
-sudo apt install build-essential gdb python3 python3-pip
-```
-
 ---
 
 ## Setup
@@ -72,31 +67,3 @@ Open **http://127.0.0.1:5000**.
 For assembly output, go to the **Compiler Explorer** tab and click Generate.
 
 ---
-
-## Project structure
-
-```
-app.py               Flask routes
-compiler.py          g++ wrapper, parses diagnostics
-debugger.py          GDB MI2 session
-compiler_explorer.py Assembly and GIMPLE generation
-templates/index.html UI
-static/css/style.css Styles
-static/js/app.js     Frontend logic
-examples/            Sample C++ programs
-```
-
----
-
-## Known limitations
-
-- **Local only** — don't expose port 5000 publicly. The app compiles and runs arbitrary C++ with no sandbox.
-- **Windows program output** — `std::cout` doesn't appear in the debug panel during a GDB session on Windows (MinGW limitation). Use the **Run** button to see output normally.
-- **One session per tab** — multiple tabs share the same GDB process.
-- **No conditional breakpoints** — basic GDB operations only.
-
----
-
-## Security note
-
-This runs user-submitted C++ code directly on your machine. Fine for local development. Do not host it publicly.
