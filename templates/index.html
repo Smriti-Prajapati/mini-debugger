@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mini Debugger</title>
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <link rel="stylesheet" href="/static/css/style.css?v=5" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-brand">
+    <span class="brand-icon"><i data-lucide="bug"></i></span>
+    <span class="brand-name">Mini Debugger</span>
+  </div>
+
+  <div class="topbar-status">
+    <span class="status-dot" id="statusDot"></span>
+    <span class="status-label" id="statusLabel">Not started</span>
+  </div>
+
+  <div class="topbar-actions">
+    <button class="btn btn-primary" id="btnCompile" title="Compile (Ctrl+B)">
+      <i data-lucide="hammer"></i> Compile
+    </button>
+    <button class="btn btn-secondary" id="btnRun" title="Run without debugger" disabled>
+      <i data-lucide="play"></i> Run
+    </button>
+
+    <div class="separator"></div>
+
+    <button class="btn btn-accent" id="btnDebugStart" title="Start debugging session" disabled>
+      <i data-lucide="bug"></i> Debug
+    </button>
+    <button class="btn btn-icon" id="btnDebugRun" title="Run program (F5)" disabled>
+      <i data-lucide="play-circle"></i>
+    </button>
+    <button class="btn btn-icon" id="btnStepOver" title="Step over (F10)" disabled>
+      <i data-lucide="arrow-right"></i>
+    </button>
+    <button class="btn btn-icon" id="btnStepInto" title="Step into (F11)" disabled>
+      <i data-lucide="corner-down-right"></i>
+    </button>
+    <button class="btn btn-icon" id="btnStepOut" title="Step out (Shift+F11)" disabled>
+      <i data-lucide="corner-up-left"></i>
+    </button>
+    <button class="btn btn-icon" id="btnContinue" title="Continue (F8)" disabled>
+      <i data-lucide="fast-forward"></i>
+    </button>
+    <button class="btn btn-icon btn-stop" id="btnDebugStop" title="Stop debugging" disabled>
+      <i data-lucide="square"></i>
+    </button>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- Left sidebar: file info + breakpoints -->
+  <aside class="sidebar sidebar-left">
+    <section class="panel-section">
+      <h2 class="section-title">
+        <i data-lucide="file-code"></i> File
+      </h2>
+      <div class="file-info" id="fileInfo">
+        <span class="file-name">untitled.cpp</span>
+      </div>
+    </section>
+
+    <section class="panel-section">
+      <h2 class="section-title">
+        <i data-lucide="circle-dot"></i> Breakpoints
+      </h2>
+      <ul class="bp-list" id="bpList">
+        <li class="list-empty">No breakpoints set</li>
+      </ul>
+    </section>
+  </aside>
+
+  <!-- Center: Monaco editor -->
+  <main class="editor-area">
+    <div id="monacoEditor" class="monaco-container"></div>
+  </main>
+
+  <!-- Right sidebar: debug state -->
+  <aside class="sidebar sidebar-right">
+    <section class="panel-section">
+      <h2 class="section-title">
+        <i data-lucide="activity"></i> Status
+      </h2>
+      <div class="debug-status-panel" id="debugStatusPanel"></div>
+    </section>
+
+    <section class="panel-section">
+      <h2 class="section-title">
+        <i data-lucide="box"></i> Variables
+      </h2>
+      <div class="var-panel" id="varPanel"></div>
+    </section>
+
+    <section class="panel-section panel-section--flex">
+      <h2 class="section-title">
+        <i data-lucide="list"></i> Call Stack
+      </h2>
+      <div class="stack-panel" id="stackPanel"></div>
+    </section>
+  </aside>
+
+</div>
+
+<!-- Bottom panel: output tabs -->
+<div class="bottom-panel" id="bottomPanel">
+  <div class="panel-resize-handle" id="panelResizeHandle"></div>
+
+  <div class="bottom-panel-header">
+    <div class="tab-bar">
+      <button class="tab active" data-tab="output">
+        <i data-lucide="terminal"></i> Program Output
+      </button>
+      <button class="tab" data-tab="compiler">
+        <i data-lucide="alert-triangle"></i> Compiler
+        <span class="tab-badge hidden" id="compilerBadge">0</span>
+      </button>
+      <button class="tab" data-tab="debuglog">
+        <i data-lucide="cpu"></i> Debugger Log
+      </button>
+    </div>
+    <button class="panel-toggle" id="panelToggle" title="Toggle panel">
+      <i data-lucide="chevron-down"></i>
+    </button>
+  </div>
+
+  <div class="tab-content" id="tabOutput">
+    <pre class="output-pre" id="programOutput"><span class="placeholder">Program output will appear here after running.</span></pre>
+  </div>
+  <div class="tab-content hidden" id="tabCompiler">
+    <div class="diagnostics-list" id="diagnosticsList">
+      <span class="placeholder">Compile your program to see diagnostics.</span>
+    </div>
+  </div>
+  <div class="tab-content hidden" id="tabDebuglog">
+    <pre class="output-pre" id="debugLog"><span class="placeholder">Debugger events will appear here.</span></pre>
+  </div>
+</div>
+
+<script src="/static/js/app.js?v=8"></script>
+</body>
+</html>

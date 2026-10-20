@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Flask / runtime
+instance/
+*.log
+
+# Compiled binaries and temp debug files
+*.exe
+*.out
+*.o
+*.a
+minidebug_*/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Test artifacts
+test_compiler.py
+test_debugger.py
+test_gdb_raw.py
+test_run_binary.py
+test_deps.py
