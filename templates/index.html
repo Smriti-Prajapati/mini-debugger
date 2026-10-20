@@ -125,6 +125,9 @@
       <button class="tab" data-tab="debuglog">
         <i data-lucide="cpu"></i> Debugger Log
       </button>
+      <button class="tab" data-tab="explorer">
+        <i data-lucide="telescope"></i> Compiler Explorer
+      </button>
     </div>
     <button class="panel-toggle" id="panelToggle" title="Toggle panel">
       <i data-lucide="chevron-down"></i>
@@ -142,8 +145,59 @@
   <div class="tab-content hidden" id="tabDebuglog">
     <pre class="output-pre" id="debugLog"><span class="placeholder">Debugger events will appear here.</span></pre>
   </div>
+
+  <div class="tab-content hidden" id="tabExplorer">
+    <div class="explorer-nav">
+      <button class="explorer-btn active" data-view="assembly">
+        <i data-lucide="code-2"></i> Assembly
+      </button>
+      <button class="explorer-btn" data-view="gimple">
+        <i data-lucide="git-branch"></i> GIMPLE IR
+      </button>
+      <button class="explorer-btn" data-view="info">
+        <i data-lucide="info"></i> Compiler Info
+      </button>
+      <div class="explorer-opt" id="explorerOptWrap">
+        <label class="opt-label">Optimization</label>
+        <select id="explorerOptLevel" class="opt-select">
+          <option value="O0" selected>-O0 (none, best for debugging)</option>
+          <option value="O1">-O1 (light)</option>
+          <option value="O2">-O2 (standard release)</option>
+          <option value="O3">-O3 (aggressive)</option>
+          <option value="Os">-Os (size)</option>
+        </select>
+      </div>
+      <button class="btn btn-primary explorer-run-btn" id="btnExplorerRun">
+        <i data-lucide="play"></i> Generate
+      </button>
+    </div>
+
+    <div class="explorer-view" id="explorerViewAssembly">
+      <div class="explorer-note" id="explorerAsmNote">
+        <i data-lucide="info"></i>
+        <span>x86-64 Intel-syntax assembly. Output is architecture-specific and changes with -O level.</span>
+      </div>
+      <div id="explorerAsmContent">
+        <span class="placeholder">Click Generate to produce assembly for the current source.</span>
+      </div>
+    </div>
+
+    <div class="explorer-view hidden" id="explorerViewGimple">
+      <div class="explorer-note">
+        <i data-lucide="info"></i>
+        <span>GIMPLE is GCC's first internal IR. C++ constructs are lowered to simple three-address statements before any optimization pass runs.</span>
+      </div>
+      <pre class="output-pre" id="explorerGimpleContent"><span class="placeholder">Click Generate to produce GIMPLE IR for the current source.</span></pre>
+    </div>
+
+    <div class="explorer-view hidden" id="explorerViewInfo">
+      <div id="explorerInfoContent">
+        <span class="placeholder">Click Generate to load compiler details.</span>
+      </div>
+    </div>
+  </div>
 </div>
 
-<script src="/static/js/app.js?v=8"></script>
+<script src="/static/js/app.js?v=9"></script>
 </body>
 </html>

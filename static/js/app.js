@@ -512,6 +512,8 @@ function switchTab(name) {
   $("tabOutput")  .classList.toggle("hidden", name !== "output");
   $("tabCompiler").classList.toggle("hidden", name !== "compiler");
   $("tabDebuglog").classList.toggle("hidden", name !== "debuglog");
+  const et = $("tabExplorer");
+  if (et) et.classList.toggle("hidden", name !== "explorer");
 }
 
 // Bottom panel: collapse toggle + drag-to-resize
@@ -595,3 +597,135 @@ function escHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+
+
+// Compiler Explorer
+
+const explorerState = { view: "assembly", infoLoaded: false };
+
+document.querySelectorAll(".explorer-btn[data-view]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    explorerState.view = btn.dataset.view;
+    document.querySelectorAll(".explorer-btn[data-view]").forEach(b =>
+      b.classList.toggle("active", b === btn)
+    );
+    document.querySelectorAll(".explorer-view").forEach(v => v.classList.add("hidden"));
+    $(`explorerView${btn.dataset.view.charAt(0).toUpperCase() + btn.dataset.view.slice(1)}`).classList.remove("hidden");
+    $("explorerOptWrap").classList.toggle("hidden", explorerState.view !== "assembly");
+  });
+});
+
+$("btnExplorerRun").addEventListener("click", async () => {
+  if (!state.editor) return;
+  const source = state.editor.getValue();
+  if (!source.trim()) { toast("Editor is empty", "error"); return; }
+  if (explorerState.view === "assembly")   await fetchAssembly(source);
+  else if (explorerState.view === "gimple") await fetchGimple(source);
+  else                                      await fetchCompilerInfo();
+});
+
+async function fetchAssembly(source) {
+  const optLevel = $("explorerOptLevel").value;
+  const content  = $("explorerAsmContent");
+  content.innerHTML = `<div class="explorer-loading"><i data-lucide="loader-2"></i> Generating…</div>`;
+  if (window.lucide) lucide.createIcons();
+  try {
+    const res  = await fetch("/api/explore/assembly", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source, opt_level: optLevel }),
+    });
+    const data = await res.json();
+    if (!data.success) {
+      content.innerHTML = `<div class="explorer-error"><i data-lucide="x-circle"></i> ${escHtml(data.error)}</div>`;
+      if (window.lucide) lucide.createIcons();
+      return;
+    }
+    let html = `<div class="asm-cmd"><span class="asm-cmd-label">Command:</span> <code>${escHtml((data.flags || []).join(" "))}</code></div>`;
+    (data.annotated || []).forEach(group => {
+      const open = group.label !== ".preamble" ? "open" : "";
+      html += `
+        <details class="asm-block" ${open}>
+          <summary class="asm-block-label">
+            <i data-lucide="chevron-right"></i>
+            <span>${escHtml(group.label.startsWith("_Z") ? group.label + " (mangled)" : group.label)}</span>
+            <span class="asm-line-count">${group.lines.length} lines</span>
+          </summary>
+          <pre class="asm-code">${escHtml(group.lines.join("\n"))}</pre>
+        </details>`;
+    });
+    content.innerHTML = html;
+    if (data.note) $("explorerAsmNote").querySelector("span").textContent = data.note;
+    if (window.lucide) lucide.createIcons();
+  } catch (e) {
+    content.innerHTML = `<div class="explorer-error">Network error</div>`;
+  }
+}
+
+async function fetchGimple(source) {
+  const pre = $("explorerGimpleContent");
+  pre.innerHTML = `<span class="placeholder">Generating GIMPLE IR…</span>`;
+  try {
+    const res  = await fetch("/api/explore/gimple", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source }),
+    });
+    const data = await res.json();
+    pre.textContent = data.success ? data.gimple : `Error: ${data.error}`;
+  } catch (e) { pre.textContent = "Network error."; }
+}
+
+async function fetchCompilerInfo() {
+  const content = $("explorerInfoContent");
+  content.innerHTML = `<div class="explorer-loading"><i data-lucide="loader-2"></i> Loading…</div>`;
+  if (window.lucide) lucide.createIcons();
+  try {
+    const res  = await fetch("/api/explore/info");
+    const data = await res.json();
+    explorerState.infoLoaded = true;
+
+    const pipelineHtml = (data.pipeline || []).map((s, i) => `
+      <div class="pipeline-step">
+        <div class="pipeline-num">${i + 1}</div>
+        <div class="pipeline-body">
+          <div class="pipeline-stage">${escHtml(s.stage)}</div>
+          <div class="pipeline-tool">${escHtml(s.tool)} → <em>${escHtml(s.output)}</em></div>
+        </div>
+        ${i < data.pipeline.length - 1 ? '<div class="pipeline-arrow"><i data-lucide="arrow-down"></i></div>' : ""}
+      </div>`).join("");
+
+    const flagsHtml = Object.entries(data.flags_used || {}).map(([f, d]) => `
+      <div class="flag-row">
+        <code class="flag-name">${escHtml(f)}</code>
+        <span class="flag-desc">${escHtml(d)}</span>
+      </div>`).join("");
+
+    content.innerHTML = `
+      <div class="info-grid">
+        <div class="info-card">
+          <h3 class="info-card-title"><i data-lucide="cpu"></i> Toolchain</h3>
+          <div class="info-kv"><span class="info-key">Compiler</span><code class="info-val">${escHtml(data.compiler || "—")}</code></div>
+          <div class="info-kv"><span class="info-key">Version</span><code class="info-val">${escHtml(data.version || "—")}</code></div>
+          <div class="info-kv"><span class="info-key">Target</span><code class="info-val">${escHtml(data.target || "—")}</code></div>
+        </div>
+        <div class="info-card">
+          <h3 class="info-card-title"><i data-lucide="git-branch"></i> Pipeline</h3>
+          <div class="pipeline">${pipelineHtml}</div>
+        </div>
+        <div class="info-card info-card--wide">
+          <h3 class="info-card-title"><i data-lucide="flag"></i> Flag Reference</h3>
+          <div class="flags-list">${flagsHtml}</div>
+        </div>
+      </div>`;
+    if (window.lucide) lucide.createIcons();
+  } catch (e) {
+    content.innerHTML = `<div class="explorer-error">Network error</div>`;
+  }
+}
+
+// Auto-load compiler info when Explorer tab is clicked
+document.querySelectorAll(".tab[data-tab='explorer']").forEach(t => {
+  t.addEventListener("click", () => {
+    if (!explorerState.infoLoaded) fetchCompilerInfo();
+    $("explorerOptWrap").classList.toggle("hidden", explorerState.view !== "assembly");
+  });
+});
