@@ -1,5 +1,10 @@
 ﻿"use strict";
 
+// $ must be declared before anything uses it
+const $ = id => document.getElementById(id);
+
+// ── App state ─────────────────────────────────────────────────────────────
+
 const state = {
   editor: null,
   compiled: false,
@@ -11,7 +16,136 @@ const state = {
   currentLine: null,
 };
 
-const $ = id => document.getElementById(id);
+// ── File manager ──────────────────────────────────────────────────────────
+
+const fileManager = { files: [], activeId: null, nextId: 1 };
+
+function fmNewFile(name, content) {
+  const id = fileManager.nextId++;
+  fileManager.files.push({ id, name: name || `untitled${id}.cpp`, content: content || "" });
+  return id;
+}
+
+function fmActiveFile() {
+  return fileManager.files.find(f => f.id === fileManager.activeId) || null;
+}
+
+function fmSaveActive() {
+  const f = fmActiveFile();
+  if (f && state.editor) f.content = state.editor.getValue();
+}
+
+function fmSwitchTo(id) {
+  fmSaveActive();
+  fileManager.activeId = id;
+  const f = fmActiveFile();
+  if (f && state.editor) {
+    state.editor.setValue(f.content);
+    state.editor.focus();
+  }
+  resetCompiledState();
+  renderFileList();
+}
+
+function fmRename(id, newName) {
+  newName = newName.trim();
+  if (!newName) return;
+  if (!newName.endsWith(".cpp")) newName += ".cpp";
+  const f = fileManager.files.find(f => f.id === id);
+  if (f) f.name = newName;
+  renderFileList();
+}
+
+function fmDelete(id) {
+  if (fileManager.files.length <= 1) { toast("Cannot delete the only file", "error"); return; }
+  fileManager.files = fileManager.files.filter(f => f.id !== id);
+  if (fileManager.activeId === id) fmSwitchTo(fileManager.files[0].id);
+  else renderFileList();
+}
+
+function renderFileList() {
+  const list = $("fileList");
+  if (!list) return;
+  list.innerHTML = "";
+  fileManager.files.forEach(f => {
+    const li = document.createElement("li");
+    li.className = `file-item${f.id === fileManager.activeId ? " active" : ""}`;
+    li.dataset.id = f.id;
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "file-item-name";
+    nameSpan.title = f.name;
+    nameSpan.textContent = f.name;
+
+    const renameBtn = document.createElement("button");
+    renameBtn.className = "file-action-btn rename-btn";
+    renameBtn.title = "Rename (double-click name)";
+    renameBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "file-action-btn del delete-btn";
+    deleteBtn.title = "Delete file";
+    deleteBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+
+    const actions = document.createElement("span");
+    actions.className = "file-item-actions";
+    actions.appendChild(renameBtn);
+    actions.appendChild(deleteBtn);
+
+    li.appendChild(nameSpan);
+    li.appendChild(actions);
+
+    // Single click = switch to file
+    nameSpan.addEventListener("click", () => {
+      if (f.id !== fileManager.activeId) fmSwitchTo(f.id);
+    });
+
+    // Double click = rename inline
+    nameSpan.addEventListener("dblclick", e => {
+      e.stopPropagation();
+      startRename(li, f);
+    });
+
+    renameBtn.addEventListener("click", e => {
+      e.stopPropagation();
+      startRename(li, f);
+    });
+
+    deleteBtn.addEventListener("click", e => {
+      e.stopPropagation();
+      fmDelete(f.id);
+    });
+
+    list.appendChild(li);
+  });
+}
+
+function startRename(li, f) {
+  const nameSpan    = li.querySelector(".file-item-name");
+  const actionsSpan = li.querySelector(".file-item-actions");
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "file-item-input";
+  input.value = f.name;
+  nameSpan.replaceWith(input);
+  actionsSpan.style.display = "none";
+  input.focus();
+  input.select();
+  const commit = () => fmRename(f.id, input.value);
+  input.addEventListener("blur", commit);
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter")  { e.preventDefault(); commit(); }
+    if (e.key === "Escape") { renderFileList(); }
+  });
+}
+
+$("btnNewFile").addEventListener("click", () => {
+  fmSaveActive();
+  const id = fmNewFile();
+  fmSwitchTo(id);
+});
+
+// ── Button refs (after $ is defined) ─────────────────────────────────────
 
 const btnCompile    = $("btnCompile");
 const btnRun        = $("btnRun");
@@ -22,6 +156,8 @@ const btnStepInto   = $("btnStepInto");
 const btnStepOut    = $("btnStepOut");
 const btnContinue   = $("btnContinue");
 const btnDebugStop  = $("btnDebugStop");
+
+// ── Monaco init ───────────────────────────────────────────────────────────
 
 require.config({ paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs" } });
 
@@ -46,9 +182,16 @@ require(["vs/editor/editor.main"], function () {
     scrollbar: { vertical: "auto", horizontal: "auto" },
   });
 
+  // Create the initial file and render the file list
+  const id = fmNewFile("untitled.cpp", "");
+  fileManager.activeId = id;
+  renderFileList();
+
+  // Gutter click to toggle breakpoints
   state.editor.onMouseDown(e => {
     if (!state.debugActive) return;
     const { type, position } = e.target;
+    // type 2 = glyph margin, type 3 = line numbers
     if (type === 2 || type === 3) toggleBreakpoint(position.lineNumber);
   });
 
@@ -58,27 +201,28 @@ require(["vs/editor/editor.main"], function () {
   document.addEventListener("keydown", e => {
     if (e.ctrlKey && e.key === "b") { e.preventDefault(); handleCompile(); }
     if (!state.debugActive) return;
-    if (e.key === "F5")  { e.preventDefault(); handleDebugRun(); }
-    if (e.key === "F8")  { e.preventDefault(); handleContinue(); }
-    if (e.key === "F10") { e.preventDefault(); handleStepOver(); }
-    if (e.key === "F11" && !e.shiftKey) { e.preventDefault(); handleStepInto(); }
-    if (e.key === "F11" &&  e.shiftKey) { e.preventDefault(); handleStepOut(); }
+    if (e.key === "F5")                  { e.preventDefault(); handleDebugRun(); }
+    if (e.key === "F8")                  { e.preventDefault(); handleContinue(); }
+    if (e.key === "F10")                 { e.preventDefault(); handleStepOver(); }
+    if (e.key === "F11" && !e.shiftKey)  { e.preventDefault(); handleStepInto(); }
+    if (e.key === "F11" &&  e.shiftKey)  { e.preventDefault(); handleStepOut(); }
   });
 
   if (window.lucide) lucide.createIcons();
 });
 
-// Compile
+// ── Compile ───────────────────────────────────────────────────────────────
 
 btnCompile.addEventListener("click", handleCompile);
 
 async function handleCompile() {
   if (!state.editor) return;
+  fmSaveActive();
   const source = state.editor.getValue();
   if (!source.trim()) { toast("Editor is empty", "error"); return; }
   if (state.debugActive) await handleDebugStop();
 
-  setStatus("running", "Compilingâ€¦");
+  setStatus("running", "Compiling...");
   btnCompile.disabled = true;
 
   try {
@@ -116,14 +260,14 @@ async function handleCompile() {
   }
 }
 
-// Run
+// ── Run ───────────────────────────────────────────────────────────────────
 
 btnRun.addEventListener("click", handleRun);
 
 async function handleRun() {
   if (!state.compiled) { toast("Compile first", "error"); return; }
 
-  setStatus("running", "Runningâ€¦");
+  setStatus("running", "Running...");
   btnRun.disabled = true;
   $("programOutput").innerHTML = "";
   switchTab("output");
@@ -150,7 +294,7 @@ async function handleRun() {
   }
 }
 
-// Debug: start / stop
+// ── Debug: start / stop ───────────────────────────────────────────────────
 
 btnDebugStart.addEventListener("click", handleDebugStart);
 
@@ -158,7 +302,7 @@ async function handleDebugStart() {
   if (!state.compiled) { toast("Compile first", "error"); return; }
 
   btnDebugStart.disabled = true;
-  setStatus("running", "Starting GDBâ€¦");
+  setStatus("running", "Starting GDB...");
 
   try {
     const res  = await fetch("/api/debug/start", { method: "POST" });
@@ -170,8 +314,8 @@ async function handleDebugStart() {
       state.breakpoints  = [];
       clearExecDecoration();
       updateDebugButtons();
-      setStatus("stopped", "Ready â€” set breakpoints");
-      logDebug("GDB session started. Set breakpoints then click â–¶ Run.");
+      setStatus("stopped", "Ready - set breakpoints");
+      logDebug("GDB session started. Set breakpoints then click Run.");
       toast("Debug session started", "success");
       renderBreakpointList();
     } else {
@@ -204,19 +348,19 @@ async function handleDebugStop() {
   renderStatusPanel({});
 }
 
-// Debug: execution controls
+// ── Debug: execution controls ─────────────────────────────────────────────
 
-btnDebugRun.addEventListener("click", () => execDebugCommand("/api/debug/run",       "Runningâ€¦"));
-btnStepOver.addEventListener("click", () => execDebugCommand("/api/debug/step-over", "Steppingâ€¦"));
-btnStepInto.addEventListener("click", () => execDebugCommand("/api/debug/step-into", "Steppingâ€¦"));
-btnStepOut .addEventListener("click", () => execDebugCommand("/api/debug/step-out",  "Steppingâ€¦"));
-btnContinue.addEventListener("click", () => execDebugCommand("/api/debug/continue",  "Continuingâ€¦"));
+btnDebugRun.addEventListener("click", () => execDebugCommand("/api/debug/run",       "Running..."));
+btnStepOver.addEventListener("click", () => execDebugCommand("/api/debug/step-over", "Stepping..."));
+btnStepInto.addEventListener("click", () => execDebugCommand("/api/debug/step-into", "Stepping..."));
+btnStepOut .addEventListener("click", () => execDebugCommand("/api/debug/step-out",  "Stepping..."));
+btnContinue.addEventListener("click", () => execDebugCommand("/api/debug/continue",  "Continuing..."));
 
-async function handleDebugRun()  { await execDebugCommand("/api/debug/run",       "Runningâ€¦"); }
-async function handleStepOver()  { await execDebugCommand("/api/debug/step-over", "Steppingâ€¦"); }
-async function handleStepInto()  { await execDebugCommand("/api/debug/step-into", "Steppingâ€¦"); }
-async function handleStepOut()   { await execDebugCommand("/api/debug/step-out",  "Steppingâ€¦"); }
-async function handleContinue()  { await execDebugCommand("/api/debug/continue",  "Continuingâ€¦"); }
+async function handleDebugRun()  { await execDebugCommand("/api/debug/run",       "Running..."); }
+async function handleStepOver()  { await execDebugCommand("/api/debug/step-over", "Stepping..."); }
+async function handleStepInto()  { await execDebugCommand("/api/debug/step-into", "Stepping..."); }
+async function handleStepOut()   { await execDebugCommand("/api/debug/step-out",  "Stepping..."); }
+async function handleContinue()  { await execDebugCommand("/api/debug/continue",  "Continuing..."); }
 
 async function execDebugCommand(url, statusMsg) {
   if (!state.debugActive) return;
@@ -237,7 +381,7 @@ async function execDebugCommand(url, statusMsg) {
   }
 }
 
-// Breakpoints
+// ── Breakpoints ───────────────────────────────────────────────────────────
 
 async function toggleBreakpoint(line) {
   if (!state.debugActive) return;
@@ -260,11 +404,8 @@ async function addBreakpoint(line) {
       logDebug(`Breakpoint ${bp.number} set at line ${bp.line}`);
     } else {
       toast(data.error || "Could not set breakpoint", "error");
-      logDebug(`Failed to set breakpoint at line ${line}: ${data.error || "unknown error"}`);
     }
-  } catch (e) {
-    toast("Network error", "error");
-  }
+  } catch (e) { toast("Network error", "error"); }
   renderBreakpointList();
   renderBpDecorations();
 }
@@ -276,17 +417,13 @@ async function removeBreakpoint(bpNumber, line) {
     if (data.success) {
       state.breakpoints = state.breakpoints.filter(bp => bp.number !== bpNumber);
       logDebug(`Breakpoint ${bpNumber} removed (line ${line})`);
-    } else {
-      toast(data.error || "Could not remove breakpoint", "error");
-    }
-  } catch (e) {
-    toast("Network error", "error");
-  }
+    } else { toast(data.error || "Could not remove breakpoint", "error"); }
+  } catch (e) { toast("Network error", "error"); }
   renderBreakpointList();
   renderBpDecorations();
 }
 
-// Apply debug state
+// ── Debug state rendering ─────────────────────────────────────────────────
 
 function applyDebugState(data) {
   if (!data) return;
@@ -306,7 +443,8 @@ function applyDebugState(data) {
     renderStack([]);
     renderStatusPanel({});
   } else if (status === "stopped") {
-    setStatus("stopped", `Paused â€” line ${(location && location.line) || "?"}`);
+    const lineNum = (location && location.line) || "?";
+    setStatus("stopped", `Paused at line ${lineNum}`);
     if (location && location.line) {
       highlightExecLine(location.line);
       logDebug(`Stopped at ${location.func || ""}:${location.line} (${location.reason || ""})`);
@@ -315,7 +453,7 @@ function applyDebugState(data) {
     renderStack(stack || []);
     renderStatusPanel(location || {});
   } else if (status === "running") {
-    setStatus("running", "Runningâ€¦");
+    setStatus("running", "Running...");
     clearExecDecoration();
   } else if (status === "not_started") {
     setStatus("stopped", "Ready");
@@ -324,8 +462,6 @@ function applyDebugState(data) {
   state.debugRunning = (status === "running");
   updateDebugButtons();
 }
-
-// Rendering
 
 function renderDiagnostics(errors) {
   const list  = $("diagnosticsList");
@@ -347,7 +483,7 @@ function renderDiagnostics(errors) {
     return `
       <div class="diag-item ${e.type}">
         <span class="diag-icon"><i data-lucide="${icon}"></i></span>
-        <span class="diag-loc">${e.line ? `L${e.line}` : "â€”"}</span>
+        <span class="diag-loc">${e.line ? `L${e.line}` : "-"}</span>
         <span class="diag-msg">${escHtml(e.message)}</span>
       </div>`;
   }).join("");
@@ -357,10 +493,7 @@ function renderDiagnostics(errors) {
 
 function renderVariables(variables) {
   const panel = $("varPanel");
-  if (!variables || variables.length === 0) {
-    panel.innerHTML = "";
-    return;
-  }
+  if (!variables || variables.length === 0) { panel.innerHTML = ""; return; }
   panel.innerHTML = `
     <table class="var-table">
       <thead><tr><th>Name</th><th>Type</th><th>Value</th></tr></thead>
@@ -376,10 +509,7 @@ function renderVariables(variables) {
 
 function renderStack(frames) {
   const panel = $("stackPanel");
-  if (!frames || frames.length === 0) {
-    panel.innerHTML = "";
-    return;
-  }
+  if (!frames || frames.length === 0) { panel.innerHTML = ""; return; }
   panel.innerHTML = frames.map((f, i) => `
     <div class="stack-frame ${i === 0 ? "current" : ""}">
       <div class="frame-func"><span class="frame-level">#${f.level}</span>${escHtml(f.func || "??")}</div>
@@ -389,12 +519,9 @@ function renderStack(frames) {
 
 function renderStatusPanel(location) {
   const panel = $("debugStatusPanel");
-  if (!location || Object.keys(location).length === 0) {
-    panel.innerHTML = "";
-    return;
-  }
+  if (!location || Object.keys(location).length === 0) { panel.innerHTML = ""; return; }
   panel.innerHTML = [["Reason", location.reason], ["Function", location.func], ["Line", location.line]]
-    .map(([k, v]) => `<div class="status-row"><span class="key">${k}</span><span class="val accent">${escHtml(String(v || "â€”"))}</span></div>`)
+    .map(([k, v]) => `<div class="status-row"><span class="key">${k}</span><span class="val accent">${escHtml(String(v || "-"))}</span></div>`)
     .join("");
 }
 
@@ -413,17 +540,15 @@ function renderBreakpointList() {
         <i data-lucide="x"></i>
       </button>
     </li>`).join("");
-
   list.querySelectorAll(".bp-remove").forEach(btn => {
     btn.addEventListener("click", () =>
       removeBreakpoint(parseInt(btn.dataset.bp), parseInt(btn.dataset.line))
     );
   });
-
   if (window.lucide) lucide.createIcons();
 }
 
-// Monaco decorations
+// ── Monaco decorations ────────────────────────────────────────────────────
 
 function highlightExecLine(line) {
   if (!state.editor) return;
@@ -464,7 +589,7 @@ function clearBpDecorations() {
   state.bpDecorations = state.editor.deltaDecorations(state.bpDecorations, []);
 }
 
-// Status and button state
+// ── Status and button state ───────────────────────────────────────────────
 
 function setStatus(dotClass, labelText) {
   $("statusDot").className = `status-dot ${dotClass}`;
@@ -474,7 +599,6 @@ function setStatus(dotClass, labelText) {
 function updateDebugButtons() {
   const { compiled, debugActive, debugRunning } = state;
   const debugStopped = debugActive && !debugRunning;
-
   btnRun        .disabled = !compiled || debugActive;
   btnDebugStart .disabled = !compiled || debugActive;
   btnDebugStop  .disabled = !debugActive;
@@ -487,7 +611,7 @@ function updateDebugButtons() {
 
 function setDebugBusy(busy, statusMsg) {
   state.debugRunning = busy;
-  if (busy) setStatus("running", statusMsg || "Runningâ€¦");
+  if (busy) setStatus("running", statusMsg || "Running...");
   updateDebugButtons();
 }
 
@@ -501,7 +625,7 @@ function resetCompiledState() {
   setStatus("", "Not started");
 }
 
-// Tabs
+// ── Tabs ──────────────────────────────────────────────────────────────────
 
 document.querySelectorAll(".tab").forEach(tab => {
   tab.addEventListener("click", () => switchTab(tab.dataset.tab));
@@ -516,7 +640,7 @@ function switchTab(name) {
   if (et) et.classList.toggle("hidden", name !== "explorer");
 }
 
-// Bottom panel: collapse toggle + drag-to-resize
+// ── Bottom panel: collapse + drag resize ──────────────────────────────────
 
 const bottomPanel = $("bottomPanel");
 const workspace   = document.querySelector(".workspace");
@@ -529,42 +653,33 @@ $("panelToggle").addEventListener("click", () => {
 (function initResize() {
   const handle = $("panelResizeHandle");
   if (!handle) return;
-
-  let startY = 0;
-  let startH = 0;
-
+  let startY = 0, startH = 0;
   handle.addEventListener("mousedown", e => {
     e.preventDefault();
     startY = e.clientY;
     startH = bottomPanel.getBoundingClientRect().height;
-
-    // Remove collapsed state when user starts dragging
     bottomPanel.classList.remove("collapsed");
     workspace.classList.remove("panel-collapsed");
-
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup",   onMouseUp);
     document.body.style.cursor = "ns-resize";
     document.body.style.userSelect = "none";
   });
-
   function onMouseMove(e) {
-    const delta  = startY - e.clientY; // dragging up = bigger panel
-    const newH   = Math.max(80, Math.min(startH + delta, window.innerHeight * 0.8));
+    const newH = Math.max(80, Math.min(startH + (startY - e.clientY), window.innerHeight * 0.8));
     bottomPanel.style.height = newH + "px";
     workspace.style.height   = `calc(100vh - var(--topbar-h) - ${newH}px)`;
     if (state.editor) state.editor.layout();
   }
-
   function onMouseUp() {
     document.removeEventListener("mousemove", onMouseMove);
     document.removeEventListener("mouseup",   onMouseUp);
-    document.body.style.cursor    = "";
+    document.body.style.cursor = "";
     document.body.style.userSelect = "";
   }
 })();
 
-// Debug log
+// ── Debug log ─────────────────────────────────────────────────────────────
 
 function logDebug(msg) {
   const pre = $("debugLog");
@@ -574,7 +689,7 @@ function logDebug(msg) {
   pre.scrollTop = pre.scrollHeight;
 }
 
-// Toast
+// ── Toast ─────────────────────────────────────────────────────────────────
 
 function toast(msg, type = "") {
   const el = document.createElement("div");
@@ -587,7 +702,7 @@ function toast(msg, type = "") {
   }, 2200);
 }
 
-// Utilities
+// ── Utilities ─────────────────────────────────────────────────────────────
 
 function escHtml(str) {
   return String(str)
@@ -597,9 +712,9 @@ function escHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+updateDebugButtons();
 
-
-// Compiler Explorer
+// ── Compiler Explorer ─────────────────────────────────────────────────────
 
 const explorerState = { view: "assembly", infoLoaded: false };
 
@@ -619,7 +734,7 @@ $("btnExplorerRun").addEventListener("click", async () => {
   if (!state.editor) return;
   const source = state.editor.getValue();
   if (!source.trim()) { toast("Editor is empty", "error"); return; }
-  if (explorerState.view === "assembly")   await fetchAssembly(source);
+  if (explorerState.view === "assembly")    await fetchAssembly(source);
   else if (explorerState.view === "gimple") await fetchGimple(source);
   else                                      await fetchCompilerInfo();
 });
@@ -627,7 +742,7 @@ $("btnExplorerRun").addEventListener("click", async () => {
 async function fetchAssembly(source) {
   const optLevel = $("explorerOptLevel").value;
   const content  = $("explorerAsmContent");
-  content.innerHTML = `<div class="explorer-loading"><i data-lucide="loader-2"></i> Generating…</div>`;
+  content.innerHTML = `<div class="explorer-loading"><i data-lucide="loader-2"></i> Generating...</div>`;
   if (window.lucide) lucide.createIcons();
   try {
     const res  = await fetch("/api/explore/assembly", {
@@ -663,7 +778,7 @@ async function fetchAssembly(source) {
 
 async function fetchGimple(source) {
   const pre = $("explorerGimpleContent");
-  pre.innerHTML = `<span class="placeholder">Generating GIMPLE IR…</span>`;
+  pre.innerHTML = `<span class="placeholder">Generating GIMPLE IR...</span>`;
   try {
     const res  = await fetch("/api/explore/gimple", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -676,7 +791,7 @@ async function fetchGimple(source) {
 
 async function fetchCompilerInfo() {
   const content = $("explorerInfoContent");
-  content.innerHTML = `<div class="explorer-loading"><i data-lucide="loader-2"></i> Loading…</div>`;
+  content.innerHTML = `<div class="explorer-loading"><i data-lucide="loader-2"></i> Loading...</div>`;
   if (window.lucide) lucide.createIcons();
   try {
     const res  = await fetch("/api/explore/info");
@@ -688,7 +803,7 @@ async function fetchCompilerInfo() {
         <div class="pipeline-num">${i + 1}</div>
         <div class="pipeline-body">
           <div class="pipeline-stage">${escHtml(s.stage)}</div>
-          <div class="pipeline-tool">${escHtml(s.tool)} → <em>${escHtml(s.output)}</em></div>
+          <div class="pipeline-tool">${escHtml(s.tool)} &rarr; <em>${escHtml(s.output)}</em></div>
         </div>
         ${i < data.pipeline.length - 1 ? '<div class="pipeline-arrow"><i data-lucide="arrow-down"></i></div>' : ""}
       </div>`).join("");
@@ -703,9 +818,9 @@ async function fetchCompilerInfo() {
       <div class="info-grid">
         <div class="info-card">
           <h3 class="info-card-title"><i data-lucide="cpu"></i> Toolchain</h3>
-          <div class="info-kv"><span class="info-key">Compiler</span><code class="info-val">${escHtml(data.compiler || "—")}</code></div>
-          <div class="info-kv"><span class="info-key">Version</span><code class="info-val">${escHtml(data.version || "—")}</code></div>
-          <div class="info-kv"><span class="info-key">Target</span><code class="info-val">${escHtml(data.target || "—")}</code></div>
+          <div class="info-kv"><span class="info-key">Compiler</span><code class="info-val">${escHtml(data.compiler || "-")}</code></div>
+          <div class="info-kv"><span class="info-key">Version</span><code class="info-val">${escHtml(data.version || "-")}</code></div>
+          <div class="info-kv"><span class="info-key">Target</span><code class="info-val">${escHtml(data.target || "-")}</code></div>
         </div>
         <div class="info-card">
           <h3 class="info-card-title"><i data-lucide="git-branch"></i> Pipeline</h3>
@@ -722,10 +837,10 @@ async function fetchCompilerInfo() {
   }
 }
 
-// Auto-load compiler info when Explorer tab is clicked
 document.querySelectorAll(".tab[data-tab='explorer']").forEach(t => {
   t.addEventListener("click", () => {
     if (!explorerState.infoLoaded) fetchCompilerInfo();
-    $("explorerOptWrap").classList.toggle("hidden", explorerState.view !== "assembly");
+    const ow = $("explorerOptWrap");
+    if (ow) ow.classList.toggle("hidden", explorerState.view !== "assembly");
   });
 });
