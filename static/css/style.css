@@ -866,3 +866,100 @@ details[open] .asm-block-label svg { transform: rotate(90deg); }
 }
 .explorer-error { color: var(--red); }
 .explorer-loading svg, .explorer-error svg { width: 14px; height: 14px; }
+
+/* ── File manager ────────────────────────────────────────── */
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.section-title-row .section-title { margin-bottom: 0; }
+
+.icon-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px 5px;
+  display: flex;
+  align-items: center;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+.icon-btn svg { width: 13px; height: 13px; }
+.icon-btn:hover { color: var(--text-primary); border-color: var(--border); background: var(--bg-hover); }
+
+.file-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-radius: var(--radius-sm);
+  padding: 0;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.file-item:hover { background: var(--bg-hover); }
+.file-item.active { background: var(--bg-active); border-left: 2px solid var(--accent); }
+
+.file-item-name {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 5px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.file-item.active .file-item-name { color: var(--text-primary); }
+
+/* Inline rename input */
+.file-item-input {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--text-primary);
+  padding: 3px 6px;
+  margin: 3px 4px;
+  outline: none;
+  width: 0;
+  min-width: 0;
+}
+
+.file-item-actions {
+  display: flex;
+  gap: 1px;
+  padding-right: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.file-item:hover .file-item-actions,
+.file-item.active .file-item-actions { opacity: 1; }
+
+.file-action-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px 4px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  transition: color var(--transition), background var(--transition);
+}
+.file-action-btn svg { width: 11px; height: 11px; }
+.file-action-btn:hover { color: var(--text-primary); background: var(--bg-section); }
+.file-action-btn.del:hover { color: var(--red); }
