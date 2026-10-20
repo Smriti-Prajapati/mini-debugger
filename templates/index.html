@@ -57,15 +57,18 @@
 
 <div class="workspace">
 
-  <!-- Left sidebar: file info + breakpoints -->
+  <!-- Left sidebar: file manager + breakpoints -->
   <aside class="sidebar sidebar-left">
     <section class="panel-section">
-      <h2 class="section-title">
-        <i data-lucide="file-code"></i> File
-      </h2>
-      <div class="file-info" id="fileInfo">
-        <span class="file-name">untitled.cpp</span>
+      <div class="section-title-row">
+        <h2 class="section-title">
+          <i data-lucide="files"></i> Files
+        </h2>
+        <button class="icon-btn" id="btnNewFile" title="New file">
+          <i data-lucide="plus"></i>
+        </button>
       </div>
+      <ul class="file-list" id="fileList"></ul>
     </section>
 
     <section class="panel-section">
@@ -198,6 +201,6 @@
   </div>
 </div>
 
-<script src="/static/js/app.js?v=9"></script>
+<script src="/static/js/app.js?v=12"></script>
 </body>
 </html>
