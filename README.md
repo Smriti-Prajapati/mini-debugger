@@ -2,7 +2,8 @@
 
 A browser-based C++ debugger built with Python, Flask, and GDB. Write C++ code in the editor, compile it, set breakpoints, and step through execution — all from the browser.
 
-![Uploading image.png…]()
+<img width="1919" height="1024" alt="image" src="https://github.com/user-attachments/assets/2b4be4c1-43cb-427d-bc4e-5d9b04ee48dd" />
+
 
 
 ---
